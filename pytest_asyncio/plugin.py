@@ -547,18 +547,17 @@ def _temporary_event_loop_policy(policy: AbstractEventLoopPolicy) -> Iterator[No
 
 
 @contextlib.contextmanager
-def _temporary_event_loop(loop:AbstractEventLoop):
+def _temporary_event_loop(loop: AbstractEventLoop):
     try:
         old_event_loop = asyncio.get_event_loop()
     except RuntimeError:
         old_event_loop = None
-    
+
     asyncio.set_event_loop(old_event_loop)
     try:
-        yield 
+        yield
     finally:
         asyncio.set_event_loop(old_event_loop)
-
 
 
 def _get_event_loop_policy() -> AbstractEventLoopPolicy:
@@ -787,9 +786,6 @@ def _create_scoped_runner_fixture(scope: _ScopeName) -> Callable:
                             RuntimeWarning,
                         )
 
-    
-
-
     return _scoped_runner
 
 
@@ -797,6 +793,7 @@ for scope in Scope:
     globals()[f"_{scope.value}_scoped_runner"] = _create_scoped_runner_fixture(
         scope.value
     )
+
 
 @pytest.fixture(scope="session", autouse=True)
 def new_event_loop() -> AbstractEventLoop:
