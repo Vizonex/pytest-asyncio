@@ -49,7 +49,6 @@ from pytest import (
     PytestPluginManager,
 )
 
-from typing import Callable
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
 else:
@@ -164,7 +163,12 @@ def fixture(
 
         @functools.wraps(fixture)
         def inner(fixture_function: FixtureFunction[_P, _R]) -> FixtureFunction[_P, _R]:
-            return fixture(fixture_function, loop_factory=loop_factory, loop_scope=loop_scope, **kwargs)
+            return fixture(
+                fixture_function,
+                loop_factory=loop_factory,
+                loop_scope=loop_scope,
+                **kwargs,
+            )
 
         return inner
 
@@ -174,7 +178,9 @@ def _is_asyncio_fixture_function(obj: Any) -> bool:
     return getattr(obj, "_force_asyncio_fixture", False)
 
 
-def _make_asyncio_fixture_function(obj: Any, loop_scope: _ScopeName | None, loop_factory: _ScopeName | None) -> None:
+def _make_asyncio_fixture_function(
+    obj: Any, loop_scope: _ScopeName | None, loop_factory: _ScopeName | None
+) -> None:
     if hasattr(obj, "__func__"):
         # instance method, check the function object
         obj = obj.__func__
@@ -239,7 +245,10 @@ def pytest_report_header(config: Config) -> list[str]:
 
 
 def _fixture_synchronizer(
-    fixturedef: FixtureDef, runner: Runner, request: FixtureRequest, loop_factory: Callable[[], AbstractEventLoop]
+    fixturedef: FixtureDef,
+    runner: Runner,
+    request: FixtureRequest,
+    loop_factory: Callable[[], AbstractEventLoop],
 ) -> Callable:
     """Returns a synchronous function evaluating the specified fixture."""
     fixture_function = resolve_fixture_function(fixturedef, request)
@@ -261,7 +270,7 @@ def _wrap_asyncgen_fixture(
     ],
     runner: Runner,
     request: FixtureRequest,
-    loop_factory:Callable[[], AbstractEventLoop]
+    loop_factory: Callable[[], AbstractEventLoop],
 ) -> Callable[AsyncGenFixtureParams, AsyncGenFixtureYieldType]:
     @functools.wraps(fixture_function)
     def _asyncgen_fixture_wrapper(
@@ -291,6 +300,7 @@ def _wrap_asyncgen_fixture(
                     msg = "Async generator fixture didn't stop."
                     msg += "Yield only once."
                     raise ValueError(msg)
+
             if loop_factory:
                 _loop = loop_factory()
                 asyncio.set_event_loop(_loop)
@@ -315,7 +325,7 @@ def _wrap_async_fixture(
     ],
     runner: Runner,
     request: FixtureRequest,
-    loop_factory: Callable[[], AbstractEventLoop] | None = None
+    loop_factory: Callable[[], AbstractEventLoop] | None = None,
 ) -> Callable[AsyncFixtureParams, AsyncFixtureReturnType]:
 
     @functools.wraps(fixture_function)  # type: ignore[arg-type]
@@ -435,7 +445,9 @@ class Coroutine(PytestAsyncioFunction):
 
     def runtest(self) -> None:
         # print(self.obj.pytestmark[0].__dict__)
-        synchronized_obj = wrap_in_sync(self.obj, self.obj.pytestmark[0].kwargs.get('loop_factory', None))
+        synchronized_obj = wrap_in_sync(
+            self.obj, self.obj.pytestmark[0].kwargs.get("loop_factory", None)
+        )
         with MonkeyPatch.context() as c:
             c.setattr(self, "obj", synchronized_obj)
             super().runtest()
@@ -642,12 +654,13 @@ def pytest_pyfunc_call(pyfuncitem: Function) -> object | None:
 
 def wrap_in_sync(
     func: Callable[..., Awaitable[Any]],
-    loop_factory:Callable[[], AbstractEventLoop] | None = None
+    loop_factory: Callable[[], AbstractEventLoop] | None = None,
 ):
     """
     Return a sync wrapper around an async function executing it in the
     current event loop.
     """
+
     @functools.wraps(func)
     def inner(*args, **kwargs):
         _last_loop = asyncio.get_event_loop()
@@ -660,7 +673,7 @@ def wrap_in_sync(
         try:
             _loop.run_until_complete(task)
         except BaseException:
-    
+
             # run_until_complete doesn't get the result from exceptions
             # that are not subclasses of `Exception`. Consume all
             # exceptions to prevent asyncio's warning from logging.
@@ -669,6 +682,7 @@ def wrap_in_sync(
             raise
 
         asyncio.set_event_loop(_last_loop)
+
     return inner
 
 
@@ -736,9 +750,12 @@ def _get_marked_loop_scope(
 ) -> _ScopeName:
     assert asyncio_marker.name == "asyncio"
     if asyncio_marker.args or (
-        asyncio_marker.kwargs and set(asyncio_marker.kwargs) - {"loop_scope", "scope", "loop_factory"}
+        asyncio_marker.kwargs
+        and set(asyncio_marker.kwargs) - {"loop_scope", "scope", "loop_factory"}
     ):
-        raise ValueError("mark.asyncio accepts only a keyword arguments 'loop_scope' or 'loop_factory'")
+        raise ValueError(
+            "mark.asyncio accepts only a keyword arguments 'loop_scope' or 'loop_factory'"
+        )
     if "scope" in asyncio_marker.kwargs:
         if "loop_scope" in asyncio_marker.kwargs:
             raise pytest.UsageError(_DUPLICATE_LOOP_SCOPE_DEFINITION_ERROR)
