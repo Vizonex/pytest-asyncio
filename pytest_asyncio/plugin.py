@@ -827,8 +827,8 @@ def _create_scoped_runner_fixture(scope: _ScopeName) -> Callable:
         request: FixtureRequest,
     ) -> Iterator[Runner]:
         new_loop_policy = event_loop_policy
-        
-         # We need to get the factory now because
+
+        # We need to get the factory now because
         # _temporary_event_loop_policy can override the Runner
         factory = _get_loop_facotry(request)
         debug_mode = _get_asyncio_debug(request.config)
